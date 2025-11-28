@@ -35,10 +35,14 @@ env/
 *.sqlite
 *.sqlite3
 bot_data.db
+*.db.backup
+*.db.bak
 
 # Logs
 *.log
 logs/
+bot.log
+*.log.*
 
 # IDE
 .vscode/
@@ -61,3 +65,15 @@ htmlcov/
 build/
 dist/
 *.egg-info/
+
+# Secrets and sensitive data
+*.key
+*.pem
+*.p12
+secrets/
+.env.local
+.env.*.local
+
+# OS files
+Thumbs.db
+.DS_Store

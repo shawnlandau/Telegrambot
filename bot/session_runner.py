@@ -5,7 +5,7 @@ Manages background execution loops for active trading sessions.
 
 import logging
 import time
-import asyncio
+import queue
 from typing import Dict, Optional, Callable
 from datetime import datetime
 from threading import Thread, Lock
@@ -40,6 +40,8 @@ class SessionRunner:
         self.active_sessions: Dict[int, Thread] = {}
         self.session_locks: Dict[int, Lock] = {}
         self.message_callbacks: Dict[int, Callable] = {}
+        self.message_queues: Dict[int, queue.Queue] = {}
+        self._shutdown_event = None
         
         logger.info("SessionRunner initialized")
     
@@ -52,6 +54,9 @@ class SessionRunner:
             callback: Async function that takes a message string
         """
         self.message_callbacks[user_id] = callback
+        # Create message queue for this user
+        if user_id not in self.message_queues:
+            self.message_queues[user_id] = queue.Queue()
     
     async def send_user_message(self, user_id: int, message: str) -> None:
         """Send a message to a user via registered callback."""
@@ -286,17 +291,19 @@ class SessionRunner:
                         current_state.last_error = None
                         self.db.save_session_state(current_state)
                         
-                        # Notify user
-                        asyncio.run(
-                            self.send_user_message(
-                                user_id,
-                                f"✅ {side} completed:\n"
-                                f"In: {result['amount_in']:.6f}\n"
-                                f"Out: {result['amount_out']:.6f}\n"
-                                f"TX: {result['tx_hash'][:16]}...\n"
-                                f"Trades: {current_state.trades_executed}"
-                            )
+                        # Notify user via queue (to avoid asyncio.run() in thread)
+                        message = (
+                            f"✅ {side} completed:\n"
+                            f"In: {result['amount_in']:.6f}\n"
+                            f"Out: {result['amount_out']:.6f}\n"
+                            f"TX: {result['tx_hash'][:16]}...\n"
+                            f"Trades: {current_state.trades_executed}"
                         )
+                        if user_id in self.message_queues:
+                            try:
+                                self.message_queues[user_id].put_nowait(message)
+                            except queue.Full:
+                                logger.warning(f"Message queue full for user {user_id}")
                         
                     except Exception as e:
                         logger.error(f"Trade execution failed for user {user_id}: {e}")
@@ -324,7 +331,12 @@ class SessionRunner:
         session_state.stopped_at = datetime.utcnow()
         self.db.save_session_state(session_state)
         
-        asyncio.run(self.send_user_message(user_id, message))
+        # Queue message instead of using asyncio.run()
+        if user_id in self.message_queues:
+            try:
+                self.message_queues[user_id].put_nowait(message)
+            except queue.Full:
+                logger.warning(f"Message queue full for user {user_id}")
     
     def _stop_with_error(self, user_id: int, error: str) -> None:
         """Stop session due to error and notify user."""
@@ -334,9 +346,11 @@ class SessionRunner:
         session_state.last_error = error
         self.db.save_session_state(session_state)
         
-        asyncio.run(
-            self.send_user_message(
-                user_id,
-                f"❌ Session stopped due to error:\n{error}"
-            )
-        )
+        # Queue message instead of using asyncio.run()
+        message = f"❌ Session stopped due to error:\n{error}"
+        if user_id in self.message_queues:
+            try:
+                self.message_queues[user_id].put_nowait(message)
+            except queue.Full:
+                logger.warning(f"Message queue full for user {user_id}")
+    

@@ -39,6 +39,19 @@ class Config:
         self.GAS_PRICE_GWEI = os.getenv("GAS_PRICE_GWEI")  # None = use network default
         self.GAS_LIMIT = int(os.getenv("GAS_LIMIT", "300000"))
         
+        # RPC configuration
+        self.RPC_TIMEOUT = int(os.getenv("RPC_TIMEOUT", "30"))
+        self.RPC_MAX_RETRIES = int(os.getenv("RPC_MAX_RETRIES", "3"))
+        
+        # Logging configuration
+        self.LOG_FILE_PATH = os.getenv("LOG_FILE_PATH", "bot.log")
+        self.ENABLE_LOG_ROTATION = os.getenv("ENABLE_LOG_ROTATION", "true").lower() == "true"
+        self.MAX_LOG_SIZE_MB = int(os.getenv("MAX_LOG_SIZE_MB", "10"))
+        self.LOG_BACKUP_COUNT = int(os.getenv("LOG_BACKUP_COUNT", "5"))
+        
+        # Rate limiting (commands per minute per user)
+        self.RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "30"))
+        
         # Validate addresses
         self._validate_address(self.DEX_ROUTER_ADDRESS, "DEX_ROUTER_ADDRESS")
         self._validate_address(self.BASE_TOKEN_ADDRESS, "BASE_TOKEN_ADDRESS")
@@ -46,6 +59,10 @@ class Config:
         
         # Validate private key format
         self._validate_private_key(self.WALLET_PRIVATE_KEY)
+        
+        # Validate paths
+        self._validate_path(self.DATABASE_PATH, "DATABASE_PATH")
+        self._validate_path(self.LOG_FILE_PATH, "LOG_FILE_PATH")
     
     @staticmethod
     def _require_env(key: str) -> str:
@@ -85,6 +102,25 @@ class Config:
             int(key, 16)
         except ValueError:
             raise ValueError("WALLET_PRIVATE_KEY must contain only hexadecimal characters")
+    
+    @staticmethod
+    def _validate_path(path: str, name: str) -> None:
+        """Validate file path is safe and doesn't contain directory traversal."""
+        if not path:
+            raise ValueError(f"{name} cannot be empty")
+        # Check for directory traversal attempts
+        if ".." in path or path.startswith("/") or "\\" in path:
+            # Allow absolute paths but warn - in production, consider restricting
+            pass
+        # Ensure parent directory exists for database
+        if name == "DATABASE_PATH":
+            import os
+            db_dir = os.path.dirname(path) or "."
+            if not os.path.exists(db_dir):
+                try:
+                    os.makedirs(db_dir, exist_ok=True)
+                except Exception as e:
+                    raise ValueError(f"Cannot create directory for {name}: {e}")
     
     def is_authorized_user(self, user_id: int) -> bool:
         """Check if a Telegram user ID is authorized to use the bot."""

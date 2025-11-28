@@ -276,3 +276,36 @@ class Database:
         """Get total number of trades for a user."""
         with self.get_session() as session:
             return session.query(TradeRecordDB).filter_by(user_id=user_id).count()
+    
+    def backup_database(self, backup_path: str = None) -> str:
+        """
+        Create a backup of the database.
+        
+        Args:
+            backup_path: Optional path for backup file. If None, uses timestamp.
+        
+        Returns:
+            Path to the backup file.
+        """
+        import shutil
+        import os
+        from datetime import datetime
+        
+        if backup_path is None:
+            base_name = self.engine.url.database or "bot_data.db"
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_path = f"{base_name}.backup.{timestamp}"
+        
+        # Ensure directory exists
+        backup_dir = os.path.dirname(backup_path) or "."
+        if not os.path.exists(backup_dir):
+            os.makedirs(backup_dir, exist_ok=True)
+        
+        # Copy database file
+        db_path = self.engine.url.database
+        if not os.path.exists(db_path):
+            raise FileNotFoundError(f"Database file not found: {db_path}")
+        
+        shutil.copy2(db_path, backup_path)
+        logger.info(f"Database backup created: {backup_path}")
+        return backup_path
