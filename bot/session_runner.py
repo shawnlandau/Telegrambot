@@ -1,6 +1,10 @@
 """
-Session runner implementing the 2×2 trading pattern (BUY-BUY-SELL-SELL).
+Session runner implementing the 2×2 trading pattern (BUY-BUY-SELL-SELL) - Solana Edition.
 Manages background execution loops for active trading sessions.
+
+SOLANA TERMINOLOGY:
+- BUY: Spend SOL → Get MEMESAI (or other SPL token)
+- SELL: Spend MEMESAI → Get SOL
 """
 
 import logging
@@ -12,7 +16,7 @@ from threading import Thread, Lock
 
 from .config import config
 from .models import SessionConfig, SessionState, TradeRecord
-from .dex_client import DexClient
+from .raydium_client import RaydiumClient
 from .db import Database
 
 logger = logging.getLogger(__name__)
@@ -23,27 +27,27 @@ TRADING_PATTERN = ["BUY", "BUY", "SELL", "SELL"]
 
 class SessionRunner:
     """
-    Manages trading session execution with the fixed 2×2 pattern.
+    Manages trading session execution with the fixed 2×2 pattern - Solana Edition.
     Handles background trading loops and state management.
     """
     
-    def __init__(self, db: Database, dex_client: DexClient):
+    def __init__(self, db: Database, raydium_client: RaydiumClient):
         """
         Initialize session runner.
         
         Args:
             db: Database instance for persistence
-            dex_client: DEX client for executing trades
+            raydium_client: Raydium client for executing trades on Solana
         """
         self.db = db
-        self.dex_client = dex_client
+        self.raydium_client = raydium_client
         self.active_sessions: Dict[int, Thread] = {}
         self.session_locks: Dict[int, Lock] = {}
         self.message_callbacks: Dict[int, Callable] = {}
         self.message_queues: Dict[int, queue.Queue] = {}
         self._shutdown_event = None
         
-        logger.info("SessionRunner initialized")
+        logger.info("SessionRunner initialized for Solana")
     
     def register_message_callback(self, user_id: int, callback: Callable) -> None:
         """
@@ -193,7 +197,7 @@ class SessionRunner:
                     
                     # Get current balances
                     try:
-                        balances = self.dex_client.get_balances()
+                        balances = self.raydium_client.get_balances()
                     except Exception as e:
                         logger.error(f"Failed to get balances: {e}")
                         self._stop_with_error(user_id, f"Failed to get balances: {str(e)}")
@@ -202,22 +206,22 @@ class SessionRunner:
                     # Execute trade based on side
                     try:
                         if side == "BUY":
-                            # Check if we have enough quote tokens
-                            if balances['quote'] < trade_notional:
+                            # Check if we have enough SOL (base tokens)
+                            if balances['base'] < trade_notional:
                                 logger.error(
-                                    f"Insufficient quote balance for user {user_id}: "
-                                    f"need {trade_notional}, have {balances['quote']}"
+                                    f"Insufficient SOL balance for user {user_id}: "
+                                    f"need {trade_notional}, have {balances['base']}"
                                 )
                                 self._stop_with_message(
                                     user_id,
-                                    f"⛔ Session stopped: Insufficient quote token balance. "
-                                    f"Need {trade_notional:.2f}, have {balances['quote']:.2f}."
+                                    f"⛔ Session stopped: Insufficient SOL balance. "
+                                    f"Need {trade_notional:.4f}, have {balances['base']:.4f}."
                                 )
                                 break
                             
-                            # Check max position if configured
+                            # Check max position if configured (max MEMESAI holdings)
                             if session_config.max_position is not None:
-                                if balances['base'] >= session_config.max_position:
+                                if balances['quote'] >= session_config.max_position:
                                     logger.warning(
                                         f"Max position reached for user {user_id}, skipping BUY"
                                     )
@@ -227,43 +231,43 @@ class SessionRunner:
                                     time.sleep(session_config.interval_seconds)
                                     continue
                             
-                            # Execute BUY
-                            result = self.dex_client.swap_exact_quote_for_base(
+                            # Execute BUY: SOL → MEMESAI
+                            result = self.raydium_client.swap_exact_sol_for_tokens(
                                 trade_notional,
                                 session_config.slippage_bps
                             )
                             
                             # Update state
                             current_state.spent_notional += result['amount_in']
-                            current_state.base_position_delta += result['amount_out']
+                            current_state.quote_position_delta += result['amount_out']
                             
                         else:  # SELL
-                            # Estimate base amount needed
-                            price = self.dex_client.get_price()
-                            base_needed = trade_notional / price
+                            # Estimate MEMESAI amount needed
+                            price = self.raydium_client.get_price()
+                            quote_needed = trade_notional * price  # SOL value to MEMESAI amount
                             
-                            # Check if we have enough base tokens
-                            if balances['base'] < base_needed:
+                            # Check if we have enough MEMESAI (quote tokens)
+                            if balances['quote'] < quote_needed:
                                 logger.error(
-                                    f"Insufficient base balance for user {user_id}: "
-                                    f"need ~{base_needed:.6f}, have {balances['base']:.6f}"
+                                    f"Insufficient MEMESAI balance for user {user_id}: "
+                                    f"need ~{quote_needed:.6f}, have {balances['quote']:.6f}"
                                 )
                                 self._stop_with_message(
                                     user_id,
-                                    f"⛔ Session stopped: Insufficient base token balance. "
-                                    f"Need ~{base_needed:.6f}, have {balances['base']:.6f}."
+                                    f"⛔ Session stopped: Insufficient MEMESAI balance. "
+                                    f"Need ~{quote_needed:.6f}, have {balances['quote']:.6f}."
                                 )
                                 break
                             
-                            # Execute SELL
-                            result = self.dex_client.swap_exact_base_for_quote(
+                            # Execute SELL: MEMESAI → SOL
+                            result = self.raydium_client.swap_exact_tokens_for_sol(
                                 trade_notional,
                                 session_config.slippage_bps
                             )
                             
                             # Update state
-                            current_state.received_quote += result['amount_out']
-                            current_state.base_position_delta -= result['amount_in']
+                            current_state.received_base += result['amount_out']
+                            current_state.quote_position_delta -= result['amount_in']
                         
                         # Record trade
                         execution_price = (

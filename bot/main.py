@@ -1,6 +1,11 @@
 """
-Main Telegram bot application.
-Handles user commands and manages trading sessions.
+Main Telegram bot application - Solana Edition.
+Handles user commands and manages trading sessions on Solana/Raydium.
+
+TRADING PATTERN (Solana):
+- BUY: Spend SOL → Get MEMESAI
+- SELL: Spend MEMESAI → Get SOL
+- Pattern: BUY → BUY → SELL → SELL (repeating)
 """
 
 import logging
@@ -25,7 +30,7 @@ from telegram.ext import (
 
 from .config import config
 from .db import Database
-from .dex_client import DexClient
+from .raydium_client import RaydiumClient
 from .session_runner import SessionRunner
 from .models import SessionConfig
 
@@ -62,7 +67,7 @@ CONFIG_LIQUIDITY, CONFIG_PCT, CONFIG_INTERVAL = range(3)
 
 # Global instances
 db: Database
-dex_client: DexClient
+raydium_client: RaydiumClient
 session_runner: SessionRunner
 application: Application
 
@@ -237,16 +242,16 @@ async def cmd_stop(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     
     if session_runner.stop_session(user_id):
         session_state = db.get_session_state(user_id)
-        net_quote = session_state.get_net_quote()
+        net_base = session_state.get_net_base()
         
         await update.message.reply_text(
             f"🛑 Trading session stopped.\n\n"
             f"📈 Session Summary:\n"
             f"• Trades Executed: {session_state.trades_executed}\n"
-            f"• Quote Spent: {session_state.spent_notional:.2f}\n"
-            f"• Quote Received: {session_state.received_quote:.2f}\n"
-            f"• Net Quote P/L: {net_quote:+.2f}\n"
-            f"• Base Position Δ: {session_state.base_position_delta:+.6f}"
+            f"• SOL Spent: {session_state.spent_notional:.4f}\n"
+            f"• SOL Received: {session_state.received_base:.4f}\n"
+            f"• Net SOL P/L: {net_base:+.4f}\n"
+            f"• MEMESAI Position Δ: {session_state.quote_position_delta:+.6f}"
         )
         logger.info(f"User {user_id} stopped trading session")
     else:
@@ -271,8 +276,8 @@ async def cmd_config_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     
     await update.message.reply_text(
         "🔧 Let's configure your trading parameters.\n\n"
-        "Please enter your **total liquidity** in quote tokens "
-        "(e.g., total USDC available for trading):"
+        "Please enter your **total liquidity** in SOL "
+        "(e.g., total SOL available for trading):"
     )
     return CONFIG_LIQUIDITY
 
@@ -492,8 +497,8 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     
     # Get balances
     try:
-        balances = dex_client.get_balances()
-        price = dex_client.get_price()
+        balances = raydium_client.get_balances()
+        price = raydium_client.get_price()
     except Exception as e:
         logger.error(f"Failed to fetch on-chain data: {e}")
         balances = {"base": 0, "quote": 0}
@@ -503,7 +508,7 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     status_emoji = "🟢" if session_state.active else "🔴"
     status_text = "ACTIVE" if session_state.active else "STOPPED"
     
-    net_quote = session_state.get_net_quote()
+    net_base = session_state.get_net_base()
     current_side = session_state.get_current_side()
     
     trade_amount = session_config.get_trade_amount()
@@ -511,20 +516,20 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     message = (
         f"{status_emoji} Session Status: **{status_text}**\n\n"
         f"📊 Configuration:\n"
-        f"• Total Liquidity: {session_config.total_liquidity:.2f}\n"
+        f"• Total Liquidity: {session_config.total_liquidity:.4f} SOL\n"
         f"• Trade %: {session_config.trade_pct}%\n"
-        f"• Trade Amount: {trade_amount:.2f}\n"
+        f"• Trade Amount: {trade_amount:.4f} SOL\n"
         f"• Interval: {session_config.interval_seconds}s\n\n"
         f"📈 Statistics:\n"
         f"• Trades Executed: {session_state.trades_executed}\n"
-        f"• Quote Spent: {session_state.spent_notional:.2f}\n"
-        f"• Quote Received: {session_state.received_quote:.2f}\n"
-        f"• Net Quote P/L: {net_quote:+.2f}\n"
-        f"• Base Position Δ: {session_state.base_position_delta:+.6f}\n"
+        f"• SOL Spent: {session_state.spent_notional:.4f}\n"
+        f"• SOL Received: {session_state.received_base:.4f}\n"
+        f"• Net SOL P/L: {net_base:+.4f}\n"
+        f"• MEMESAI Position Δ: {session_state.quote_position_delta:+.6f}\n"
         f"• Next Trade: {current_side}\n\n"
         f"💰 Current Balances:\n"
-        f"• Base: {balances['base']:.6f}\n"
-        f"• Quote: {balances['quote']:.2f}\n"
+        f"• SOL: {balances['base']:.4f}\n"
+        f"• MEMESAI: {balances['quote']:.6f}\n"
         f"• Price: {price:.6f}\n\n"
         f"Pattern: BUY → BUY → SELL → SELL"
     )
@@ -540,9 +545,12 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /help command - show help message."""
     help_text = (
-        "🤖 **DEX Trading Bot - Help**\n\n"
-        "This bot executes automated trades with a fixed 2×2 pattern:\n"
+        "🤖 **DEX Trading Bot - Solana Edition**\n\n"
+        "This bot executes automated trades on Raydium with a fixed 2×2 pattern:\n"
         "BUY → BUY → SELL → SELL (repeating)\n\n"
+        "**Trading Pattern:**\n"
+        "• BUY: Spend SOL → Get MEMESAI\n"
+        "• SELL: Spend MEMESAI → Get SOL\n\n"
         "**Commands:**\n"
         "/config - Set up trading parameters\n"
         "/setpct <value> - Update trade percentage\n"
@@ -659,19 +667,19 @@ def setup_signal_handlers(app: Application):
 
 def main() -> None:
     """Main entry point for the bot."""
-    global db, dex_client, session_runner, application
+    global db, raydium_client, session_runner, application
     
-    logger.info("Starting DEX Trading Bot...")
+    logger.info("Starting DEX Trading Bot (Solana Edition)...")
     
     # Initialize components
     try:
         db = Database(config.DATABASE_PATH)
         logger.info("Database initialized")
         
-        dex_client = DexClient()
-        logger.info("DEX client initialized")
+        raydium_client = RaydiumClient()
+        logger.info("Raydium client initialized")
         
-        session_runner = SessionRunner(db, dex_client)
+        session_runner = SessionRunner(db, raydium_client)
         logger.info("Session runner initialized")
         
     except Exception as e:

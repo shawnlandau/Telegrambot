@@ -1,11 +1,17 @@
-# Python DEX Trading Bot - Requirements
+# Python DEX Trading Bot - Requirements (Solana Edition)
 # Python 3.11+ required
 
-# Web3 and blockchain
-web3==6.15.1
-eth-account==0.11.0
-eth-typing==3.5.2
-eth-utils==2.3.1
+# Solana blockchain
+solana==0.32.0
+solders==0.20.0
+anchorpy==0.19.1
+base58==2.1.1
+
+# Legacy Web3 (kept for reference, can be removed if not needed)
+# web3==6.15.1
+# eth-account==0.11.0
+# eth-typing==3.5.2
+# eth-utils==2.3.1
 
 # Telegram bot
 python-telegram-bot==20.8

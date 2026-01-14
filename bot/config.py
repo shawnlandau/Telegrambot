@@ -1,11 +1,12 @@
 """
-Configuration module for DEX Bot MVP.
+Configuration module for DEX Bot MVP - Solana Edition.
 Loads and validates all required environment variables.
 """
 
 import os
 from typing import List
 from dotenv import load_dotenv
+import base58
 
 # Load environment variables from .env file if present
 load_dotenv()
@@ -17,12 +18,19 @@ class Config:
     def __init__(self):
         """Initialize and validate all required configuration values."""
         
-        # Blockchain & DEX configuration
-        self.RPC_URL = self._require_env("RPC_URL")
+        # Solana blockchain & DEX configuration
+        self.SOLANA_RPC_URL = self._require_env("SOLANA_RPC_URL")
         self.WALLET_PRIVATE_KEY = self._require_env("WALLET_PRIVATE_KEY")
-        self.DEX_ROUTER_ADDRESS = self._require_env("DEX_ROUTER_ADDRESS")
-        self.BASE_TOKEN_ADDRESS = self._require_env("BASE_TOKEN_ADDRESS")
+        self.RAYDIUM_PROGRAM_ID = os.getenv("RAYDIUM_PROGRAM_ID", "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8")
+        
+        # Token addresses (Solana base58 format)
+        # BASE = SOL (native Solana, using wrapped SOL program for swaps)
+        self.BASE_TOKEN_ADDRESS = os.getenv("BASE_TOKEN_ADDRESS", "So11111111111111111111111111111111111111112")
+        # QUOTE = MEMESAI or other SPL token
         self.QUOTE_TOKEN_ADDRESS = self._require_env("QUOTE_TOKEN_ADDRESS")
+        
+        # Raydium pool ID for the trading pair
+        self.RAYDIUM_POOL_ID = self._require_env("RAYDIUM_POOL_ID")
         
         # Telegram configuration
         self.TELEGRAM_BOT_TOKEN = self._require_env("TELEGRAM_BOT_TOKEN")
@@ -35,9 +43,13 @@ class Config:
         self.LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
         self.MAX_TRADES_PER_SESSION = int(os.getenv("MAX_TRADES_PER_SESSION", "1000"))
         
-        # Gas configuration (optional)
-        self.GAS_PRICE_GWEI = os.getenv("GAS_PRICE_GWEI")  # None = use network default
-        self.GAS_LIMIT = int(os.getenv("GAS_LIMIT", "300000"))
+        # Solana transaction configuration
+        self.MAX_RETRIES = int(os.getenv("MAX_RETRIES", "3"))
+        self.SKIP_PREFLIGHT = os.getenv("SKIP_PREFLIGHT", "false").lower() == "true"
+        self.COMMITMENT_LEVEL = os.getenv("COMMITMENT_LEVEL", "confirmed")  # finalized, confirmed, processed
+        
+        # Slippage tolerance in basis points (default 100 = 1%)
+        self.DEFAULT_SLIPPAGE_BPS = int(os.getenv("DEFAULT_SLIPPAGE_BPS", "100"))
         
         # RPC configuration
         self.RPC_TIMEOUT = int(os.getenv("RPC_TIMEOUT", "30"))
@@ -52,13 +64,14 @@ class Config:
         # Rate limiting (commands per minute per user)
         self.RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "30"))
         
-        # Validate addresses
-        self._validate_address(self.DEX_ROUTER_ADDRESS, "DEX_ROUTER_ADDRESS")
-        self._validate_address(self.BASE_TOKEN_ADDRESS, "BASE_TOKEN_ADDRESS")
-        self._validate_address(self.QUOTE_TOKEN_ADDRESS, "QUOTE_TOKEN_ADDRESS")
+        # Validate Solana addresses
+        self._validate_solana_address(self.RAYDIUM_PROGRAM_ID, "RAYDIUM_PROGRAM_ID")
+        self._validate_solana_address(self.BASE_TOKEN_ADDRESS, "BASE_TOKEN_ADDRESS")
+        self._validate_solana_address(self.QUOTE_TOKEN_ADDRESS, "QUOTE_TOKEN_ADDRESS")
+        self._validate_solana_address(self.RAYDIUM_POOL_ID, "RAYDIUM_POOL_ID")
         
-        # Validate private key format
-        self._validate_private_key(self.WALLET_PRIVATE_KEY)
+        # Validate private key format (Solana private key in base58)
+        self._validate_solana_private_key(self.WALLET_PRIVATE_KEY)
         
         # Validate paths
         self._validate_path(self.DATABASE_PATH, "DATABASE_PATH")
@@ -84,24 +97,43 @@ class Config:
             raise ValueError(f"Invalid ALLOWED_TELEGRAM_IDS format: {e}")
     
     @staticmethod
-    def _validate_address(address: str, name: str) -> None:
-        """Validate Ethereum address format."""
-        if not address.startswith("0x") or len(address) != 42:
+    def _validate_solana_address(address: str, name: str) -> None:
+        """Validate Solana address format (base58)."""
+        try:
+            decoded = base58.b58decode(address)
+            # Solana addresses are 32 bytes
+            if len(decoded) != 32:
+                raise ValueError(
+                    f"{name} must be a valid Solana address (32 bytes in base58)"
+                )
+        except Exception as e:
             raise ValueError(
-                f"{name} must be a valid Ethereum address (0x + 40 hex chars)"
+                f"{name} is not a valid Solana address: {e}"
             )
     
     @staticmethod
-    def _validate_private_key(private_key: str) -> None:
-        """Validate private key format."""
-        # Remove 0x prefix if present
-        key = private_key.replace("0x", "")
-        if len(key) != 64:
-            raise ValueError("WALLET_PRIVATE_KEY must be 64 hex characters (with or without 0x prefix)")
+    def _validate_solana_private_key(private_key: str) -> None:
+        """Validate Solana private key format.
+        
+        Solana private keys can be in different formats:
+        - Base58 encoded string (most common)
+        - JSON array of bytes
+        - Hex string (less common)
+        
+        For this implementation, we expect base58 encoded string.
+        """
         try:
-            int(key, 16)
-        except ValueError:
-            raise ValueError("WALLET_PRIVATE_KEY must contain only hexadecimal characters")
+            # Try to decode as base58
+            decoded = base58.b58decode(private_key)
+            # Solana private keys are 64 bytes (includes public key)
+            if len(decoded) not in [32, 64]:
+                raise ValueError(
+                    "WALLET_PRIVATE_KEY must be 32 or 64 bytes when base58 decoded"
+                )
+        except Exception as e:
+            raise ValueError(
+                f"WALLET_PRIVATE_KEY is not a valid Solana private key (base58): {e}"
+            )
     
     @staticmethod
     def _validate_path(path: str, name: str) -> None:
