@@ -394,7 +394,9 @@ class RaydiumClient:
                 'amount_in': notional_sol,
                 'amount_out': expected_out,
                 'tx_hash': fake_tx_hash,
-                'slot': None
+                'slot': None,
+                'gas_used': 50000,  # Simulated gas (typical Solana compute units)
+                'gas_price_gwei': 0.000005  # Simulated fee in SOL (~5000 lamports)
             }
         
         try:
@@ -465,7 +467,9 @@ class RaydiumClient:
                 'amount_in': actual_amount_in,
                 'amount_out': actual_amount_out,
                 'tx_hash': signature,
-                'slot': None
+                'slot': None,
+                'gas_used': 50000,  # Solana compute units (estimated)
+                'gas_price_gwei': 0.000005  # Solana transaction fee (~5000 lamports)
             }
             
         except Exception as e:
@@ -529,7 +533,9 @@ class RaydiumClient:
                 'amount_in': token_amount,
                 'amount_out': expected_out_sol,
                 'tx_hash': fake_tx_hash,
-                'slot': None
+                'slot': None,
+                'gas_used': 50000,  # Simulated gas (typical Solana compute units)
+                'gas_price_gwei': 0.000005  # Simulated fee in SOL (~5000 lamports)
             }
         
         try:
@@ -603,7 +609,9 @@ class RaydiumClient:
                 'amount_in': actual_amount_in,
                 'amount_out': actual_amount_out,
                 'tx_hash': signature,
-                'slot': None
+                'slot': None,
+                'gas_used': 50000,  # Solana compute units (estimated)
+                'gas_price_gwei': 0.000005  # Solana transaction fee (~5000 lamports)
             }
             
         except Exception as e:
