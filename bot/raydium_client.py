@@ -39,6 +39,12 @@ class RaydiumClient:
     
     def __init__(self):
         """Initialize Solana connection and load wallet keypair."""
+        # Check if running in simulation mode
+        self.simulation_mode = config.SIMULATION_MODE
+        
+        if self.simulation_mode:
+            logger.warning("⚠️  SIMULATION MODE ENABLED - No real trades will be executed!")
+        
         # Determine commitment level
         commitment_map = {
             "finalized": Finalized,
@@ -172,7 +178,25 @@ class RaydiumClient:
         """
         Get current token balances for the wallet.
         Returns balances adjusted for decimals.
+        
+        In simulation mode, returns simulated balances.
         """
+        # SIMULATION MODE: Return simulated balances
+        if self.simulation_mode:
+            base_balance = getattr(self, '_sim_sol_balance', 0.75)
+            quote_balance = getattr(self, '_sim_token_balance', 0.0)
+            
+            logger.debug(
+                f"[SIMULATION] Balances: {base_balance:.6f} {self.base_symbol}, "
+                f"{quote_balance:.2f} {self.quote_symbol}"
+            )
+            
+            return {
+                "base": base_balance,
+                "quote": quote_balance,
+            }
+        
+        # REAL MODE: Fetch actual on-chain balances
         try:
             # Get SOL balance (in lamports)
             sol_response = self._rpc_call_with_retry(
@@ -254,9 +278,23 @@ class RaydiumClient:
         This fetches a live quote for 1 SOL to determine the current exchange rate.
         More reliable than parsing pool state directly.
         
+        In simulation mode, returns a simulated price.
+        
         Returns:
             Price as quote_tokens_per_base_token (MEMESAI per SOL)
         """
+        # SIMULATION MODE: Return simulated price
+        if self.simulation_mode:
+            import random
+            # Simulate price with small random variations (±2%)
+            base_price = getattr(self, '_sim_price', 1000000.0)  # 1M MEMESAI per SOL
+            variation = base_price * (random.uniform(-0.02, 0.02))
+            price = base_price + variation
+            self._sim_price = price  # Store for next time
+            logger.info(f"[SIMULATION] Current price: 1 {self.base_symbol} = {price:.2f} {self.quote_symbol}")
+            return price
+        
+        # REAL MODE: Use Jupiter API
         try:
             import requests
             
@@ -310,6 +348,8 @@ class RaydiumClient:
         Uses Jupiter Aggregator API for best execution.
         This is more reliable than direct Raydium calls and handles routing automatically.
         
+        In simulation mode, simulates the trade without executing on-chain.
+        
         Args:
             notional_sol: Amount of SOL to spend (in SOL, not lamports)
             slippage_bps: Slippage tolerance in basis points (e.g., 50 = 0.5%)
@@ -318,6 +358,44 @@ class RaydiumClient:
             dict with 'amount_in', 'amount_out', 'tx_hash', 'slot'
         """
         logger.info(f"BUY: Swapping {notional_sol} {self.base_symbol} for {self.quote_symbol}")
+        
+        # SIMULATION MODE: Simulate the trade
+        if self.simulation_mode:
+            import time
+            import hashlib
+            
+            # Get simulated price
+            current_price = self.get_price()
+            
+            # Calculate expected output with small slippage
+            slippage_factor = 1 - (slippage_bps / 10000)
+            expected_out = notional_sol * current_price * slippage_factor
+            
+            # Generate fake transaction hash
+            fake_tx_data = f"sim_buy_{notional_sol}_{time.time()}".encode()
+            fake_tx_hash = hashlib.sha256(fake_tx_data).hexdigest()
+            
+            # Simulate network delay
+            time.sleep(0.5)
+            
+            logger.info(f"[SIMULATION] BUY executed: {notional_sol} {self.base_symbol} → {expected_out:.2f} {self.quote_symbol}")
+            logger.info(f"[SIMULATION] TX: {fake_tx_hash}")
+            
+            # Update simulated balances
+            if not hasattr(self, '_sim_sol_balance'):
+                self._sim_sol_balance = 0.75  # Initial balance
+            if not hasattr(self, '_sim_token_balance'):
+                self._sim_token_balance = 0.0
+            
+            self._sim_sol_balance -= notional_sol
+            self._sim_token_balance += expected_out
+            
+            return {
+                'amount_in': notional_sol,
+                'amount_out': expected_out,
+                'tx_hash': fake_tx_hash,
+                'slot': None
+            }
         
         try:
             import requests
@@ -404,6 +482,8 @@ class RaydiumClient:
         
         Uses Jupiter Aggregator API for best execution.
         
+        In simulation mode, simulates the trade without executing on-chain.
+        
         Args:
             notional_sol_equiv: Approximate SOL value to sell (in SOL)
             slippage_bps: Slippage tolerance in basis points
@@ -412,6 +492,45 @@ class RaydiumClient:
             dict with 'amount_in', 'amount_out', 'tx_hash', 'slot'
         """
         logger.info(f"SELL: Swapping ~{notional_sol_equiv} {self.base_symbol} worth of {self.quote_symbol}")
+        
+        # SIMULATION MODE: Simulate the trade
+        if self.simulation_mode:
+            import time
+            import hashlib
+            
+            # Get simulated price
+            current_price = self.get_price()
+            token_amount = notional_sol_equiv * current_price
+            
+            # Calculate expected output with small slippage
+            slippage_factor = 1 - (slippage_bps / 10000)
+            expected_out_sol = notional_sol_equiv * slippage_factor
+            
+            # Generate fake transaction hash
+            fake_tx_data = f"sim_sell_{token_amount}_{time.time()}".encode()
+            fake_tx_hash = hashlib.sha256(fake_tx_data).hexdigest()
+            
+            # Simulate network delay
+            time.sleep(0.5)
+            
+            logger.info(f"[SIMULATION] SELL executed: {token_amount:.2f} {self.quote_symbol} → {expected_out_sol} {self.base_symbol}")
+            logger.info(f"[SIMULATION] TX: {fake_tx_hash}")
+            
+            # Update simulated balances
+            if not hasattr(self, '_sim_sol_balance'):
+                self._sim_sol_balance = 0.75
+            if not hasattr(self, '_sim_token_balance'):
+                self._sim_token_balance = 0.0
+            
+            self._sim_sol_balance += expected_out_sol
+            self._sim_token_balance -= token_amount
+            
+            return {
+                'amount_in': token_amount,
+                'amount_out': expected_out_sol,
+                'tx_hash': fake_tx_hash,
+                'slot': None
+            }
         
         try:
             import requests

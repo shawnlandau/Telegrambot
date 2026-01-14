@@ -64,6 +64,9 @@ class Config:
         # Rate limiting (commands per minute per user)
         self.RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "30"))
         
+        # Simulation mode (for testing without real trades)
+        self.SIMULATION_MODE = os.getenv("SIMULATION_MODE", "false").lower() == "true"
+        
         # Validate Solana addresses
         self._validate_solana_address(self.RAYDIUM_PROGRAM_ID, "RAYDIUM_PROGRAM_ID")
         self._validate_solana_address(self.BASE_TOKEN_ADDRESS, "BASE_TOKEN_ADDRESS")
