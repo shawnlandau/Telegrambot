@@ -321,7 +321,7 @@ class RaydiumClient:
         
         try:
             import requests
-            from solana.transaction import Transaction
+            import base64
             
             # Convert SOL to lamports
             amount_in_lamports = int(notional_sol * LAMPORTS_PER_SOL)
@@ -366,7 +366,6 @@ class RaydiumClient:
                 raise Exception(f"Invalid swap response: {swap_data}")
             
             # Step 3: Decode and sign transaction
-            import base64
             swap_transaction_bytes = base64.b64decode(swap_data["swapTransaction"])
             
             # Deserialize transaction
@@ -416,7 +415,7 @@ class RaydiumClient:
         
         try:
             import requests
-            from solana.transaction import Transaction
+            import base64
             
             # Calculate token amount to sell based on current price
             current_price = self.get_price()
@@ -464,7 +463,6 @@ class RaydiumClient:
                 raise Exception(f"Invalid swap response: {swap_data}")
             
             # Step 3: Decode and sign transaction
-            import base64
             swap_transaction_bytes = base64.b64decode(swap_data["swapTransaction"])
             
             # Deserialize transaction
