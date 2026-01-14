@@ -10,7 +10,7 @@ from decimal import Decimal
 
 from solana.rpc.api import Client
 from solana.rpc.commitment import Confirmed, Finalized, Processed
-from solana.transaction import Transaction
+from solders.transaction import Transaction
 from solders.keypair import Keypair
 from solders.pubkey import Pubkey
 from solders.system_program import TransferParams, transfer
@@ -182,19 +182,29 @@ class RaydiumClient:
             base_balance = float(sol_response.value) / LAMPORTS_PER_SOL
             
             # Get SPL token balance for quote token
-            quote_token_account = self._get_associated_token_address(
-                self.keypair.pubkey(),
-                self.quote_token_mint
-            )
-            
-            quote_response = self._rpc_call_with_retry(
-                self.client.get_token_account_balance,
-                quote_token_account
-            )
-            
-            if quote_response.value:
-                quote_balance = float(quote_response.value.ui_amount or 0)
-            else:
+            # Note: Token account might not exist yet (until first BUY)
+            quote_balance = 0.0
+            try:
+                quote_token_account = self._get_associated_token_address(
+                    self.keypair.pubkey(),
+                    self.quote_token_mint
+                )
+                
+                quote_response = self._rpc_call_with_retry(
+                    self.client.get_token_account_balance,
+                    quote_token_account
+                )
+                
+                if quote_response.value:
+                    quote_balance = float(quote_response.value.ui_amount or 0)
+                else:
+                    # Token account doesn't exist yet (no tokens owned)
+                    logger.debug(f"{self.quote_symbol} token account not found (balance = 0)")
+                    quote_balance = 0.0
+            except Exception as token_error:
+                # Token account doesn't exist or can't be fetched
+                # This is normal for a new wallet that hasn't received tokens yet
+                logger.debug(f"Could not fetch {self.quote_symbol} balance (likely doesn't exist yet): {token_error}")
                 quote_balance = 0.0
             
             logger.debug(
