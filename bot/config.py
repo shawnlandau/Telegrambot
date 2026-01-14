@@ -29,8 +29,8 @@ class Config:
         # QUOTE = MEMESAI or other SPL token
         self.QUOTE_TOKEN_ADDRESS = self._require_env("QUOTE_TOKEN_ADDRESS")
         
-        # Raydium pool ID for the trading pair
-        self.RAYDIUM_POOL_ID = self._require_env("RAYDIUM_POOL_ID")
+        # Raydium pool ID for the trading pair (optional - Jupiter doesn't require it)
+        self.RAYDIUM_POOL_ID = os.getenv("RAYDIUM_POOL_ID", "")
         
         # Telegram configuration
         self.TELEGRAM_BOT_TOKEN = self._require_env("TELEGRAM_BOT_TOKEN")
@@ -68,7 +68,8 @@ class Config:
         self._validate_solana_address(self.RAYDIUM_PROGRAM_ID, "RAYDIUM_PROGRAM_ID")
         self._validate_solana_address(self.BASE_TOKEN_ADDRESS, "BASE_TOKEN_ADDRESS")
         self._validate_solana_address(self.QUOTE_TOKEN_ADDRESS, "QUOTE_TOKEN_ADDRESS")
-        self._validate_solana_address(self.RAYDIUM_POOL_ID, "RAYDIUM_POOL_ID")
+        if self.RAYDIUM_POOL_ID:  # Only validate if provided
+            self._validate_solana_address(self.RAYDIUM_POOL_ID, "RAYDIUM_POOL_ID")
         
         # Validate private key format (Solana private key in base58)
         self._validate_solana_private_key(self.WALLET_PRIVATE_KEY)
