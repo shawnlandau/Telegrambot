@@ -562,6 +562,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "• SELL: Spend MEMESAI → Get SOL\n\n"
         "**Commands:**\n"
         "/config - Set up trading parameters\n"
+        "/test - Test bot responsiveness\n"
         "/setpct <value> - Update trade percentage\n"
         "/setinterval <seconds> - Update trade interval\n"
         "/start - Start trading session\n"
@@ -622,6 +623,24 @@ async def cmd_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         message += "\n"
     
     await update.message.reply_text(message, parse_mode='Markdown')
+
+
+@check_authorization
+@check_rate_limit
+async def cmd_test(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /test command - test bot responsiveness."""
+    user_id = update.effective_user.id
+    user_config = db.get_session_config(user_id)
+    
+    await update.message.reply_text(
+        f"✅ Bot is responding!\n\n"
+        f"Your User ID: {user_id}\n"
+        f"Authorized: {config.is_authorized_user(user_id)}\n"
+        f"Config exists: {user_config is not None}\n"
+        f"Simulation mode: {config.SIMULATION_MODE}\n\n"
+        f"If you see this, the bot is working!"
+    )
+    logger.info(f"User {user_id} ran /test command")
 
 
 @check_authorization
@@ -720,6 +739,7 @@ def main() -> None:
     # Add command handlers
     application.add_handler(CommandHandler('start', cmd_start))
     application.add_handler(CommandHandler('stop', cmd_stop))
+    application.add_handler(CommandHandler('test', cmd_test))
     application.add_handler(CommandHandler('setpct', cmd_setpct))
     application.add_handler(CommandHandler('setinterval', cmd_setinterval))
     application.add_handler(CommandHandler('status', cmd_status))
