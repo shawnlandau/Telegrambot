@@ -77,6 +77,9 @@ rate_limit_tracker: Dict[int, list] = defaultdict(list)
 
 def check_authorization(func):
     """Decorator to check if user is authorized."""
+    from functools import wraps
+    
+    @wraps(func)
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
         if not config.is_authorized_user(user_id):
@@ -91,6 +94,9 @@ def check_authorization(func):
 
 def check_rate_limit(func):
     """Decorator to enforce rate limiting on commands."""
+    from functools import wraps
+    
+    @wraps(func)
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
         now = datetime.utcnow()
@@ -261,10 +267,11 @@ async def cmd_stop(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 @check_authorization
-@check_rate_limit
+@check_rate_limit  
 async def cmd_config_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Handle /config command - start configuration conversation."""
     user_id = update.effective_user.id
+    logger.info(f"User {user_id} started /config command")
     
     # Check if session is active
     if session_runner.is_session_active(user_id):
@@ -272,8 +279,10 @@ async def cmd_config_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             "⚠️ Cannot change configuration while a session is active.\n"
             "Please /stop the session first."
         )
+        logger.info(f"User {user_id} tried to config during active session")
         return ConversationHandler.END
     
+    logger.info(f"Sending config prompt to user {user_id}")
     await update.message.reply_text(
         "🔧 Let's configure your trading parameters.\n\n"
         "Please enter your **total liquidity** in SOL "
@@ -692,7 +701,7 @@ def main() -> None:
     # Setup graceful shutdown
     setup_signal_handlers(application)
     
-    # Add conversation handler for /config
+    # Add conversation handler for /config  
     config_conv_handler = ConversationHandler(
         entry_points=[CommandHandler('config', cmd_config_start)],
         states={
@@ -701,9 +710,12 @@ def main() -> None:
             CONFIG_INTERVAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, config_interval)],
         },
         fallbacks=[CommandHandler('cancel', config_cancel)],
+        allow_reentry=True,  # Allow re-entering the conversation
+        name="config_conversation",  # Name for debugging
     )
     
     application.add_handler(config_conv_handler)
+    logger.info("Config conversation handler registered")
     
     # Add command handlers
     application.add_handler(CommandHandler('start', cmd_start))
