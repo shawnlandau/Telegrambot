@@ -422,6 +422,7 @@ class RaydiumClient:
         try:
             import requests
             import base64
+            import time as time_module  # Ensure time is accessible in nested scopes
             
             # Convert SOL to lamports
             amount_in_lamports = int(notional_sol * LAMPORTS_PER_SOL)
@@ -605,6 +606,7 @@ class RaydiumClient:
         try:
             import requests
             import base64
+            import time as time_module  # Ensure time is accessible in nested scopes
             
             # Calculate token amount to sell based on current price
             current_price = self.get_price()
@@ -614,7 +616,7 @@ class RaydiumClient:
             logger.info(f"Selling {token_amount:.6f} {self.quote_symbol}")
             logger.info(f"Getting Jupiter quote for {amount_in_tokens} tokens...")
             
-            # Step 1: Get quote from Jupiter
+            # Step 1: Get quote from Jupiter with retry logic
             quote_url = f"https://quote-api.jup.ag/v6/quote"
             quote_params = {
                 "inputMint": str(self.quote_token_mint),  # Selling MEMESAI
@@ -623,11 +625,32 @@ class RaydiumClient:
                 "slippageBps": str(slippage_bps),
             }
             
-            quote_response = requests.get(quote_url, params=quote_params, timeout=10)
-            quote_response.raise_for_status()
-            quote_data = quote_response.json()
+            # Retry up to 3 times
+            max_retries = 3
+            quote_data = None
+            for attempt in range(max_retries):
+                try:
+                    quote_response = requests.get(
+                        quote_url, 
+                        params=quote_params, 
+                        timeout=15,
+                        headers={'User-Agent': 'Mozilla/5.0'}
+                    )
+                    quote_response.raise_for_status()
+                    quote_data = quote_response.json()
+                    break  # Success
+                except (requests.exceptions.ConnectionError, 
+                        requests.exceptions.Timeout,
+                        requests.exceptions.RequestException) as e:
+                    if attempt < max_retries - 1:
+                        wait_time = 2 ** attempt
+                        logger.warning(f"Jupiter quote request failed (attempt {attempt + 1}/{max_retries}): {e}")
+                        logger.info(f"Retrying in {wait_time}s...")
+                        time_module.sleep(wait_time)
+                    else:
+                        raise Exception(f"Jupiter API unavailable after {max_retries} attempts: {e}")
             
-            if "outAmount" not in quote_data:
+            if not quote_data or "outAmount" not in quote_data:
                 raise Exception(f"Invalid quote response: {quote_data}")
             
             expected_out_lamports = int(quote_data["outAmount"])
@@ -664,7 +687,7 @@ class RaydiumClient:
                         wait_time = 2 ** attempt
                         logger.warning(f"Jupiter swap request failed (attempt {attempt + 1}/{max_retries}): {e}")
                         logger.info(f"Retrying in {wait_time}s...")
-                        time.sleep(wait_time)
+                        time_module.sleep(wait_time)
                     else:
                         raise Exception(f"Jupiter API unavailable after {max_retries} attempts: {e}")
             
