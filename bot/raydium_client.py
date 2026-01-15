@@ -460,7 +460,7 @@ class RaydiumClient:
                         wait_time = 2 ** attempt
                         logger.warning(f"Jupiter quote request failed (attempt {attempt + 1}/{max_retries}): {e}")
                         logger.info(f"Retrying in {wait_time}s...")
-                        time.sleep(wait_time)
+                        time_module.sleep(wait_time)
                     else:
                         raise Exception(f"Jupiter API unavailable after {max_retries} attempts: {e}")
             
@@ -504,7 +504,7 @@ class RaydiumClient:
                         wait_time = 2 ** attempt
                         logger.warning(f"Jupiter swap request failed (attempt {attempt + 1}/{max_retries}): {e}")
                         logger.info(f"Retrying in {wait_time}s...")
-                        time.sleep(wait_time)
+                        time_module.sleep(wait_time)
                     else:
                         raise Exception(f"Jupiter API unavailable after {max_retries} attempts: {e}")
             
