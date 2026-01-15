@@ -297,6 +297,7 @@ class RaydiumClient:
         # REAL MODE: Use Jupiter API
         try:
             import requests
+            import time as time_module  # Ensure time is accessible in nested scopes
             
             # Use 1 SOL as test amount
             test_amount_lamports = LAMPORTS_PER_SOL
@@ -332,7 +333,7 @@ class RaydiumClient:
                         wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
                         logger.warning(f"Jupiter API request failed (attempt {attempt + 1}/{max_retries}): {e}")
                         logger.info(f"Retrying in {wait_time}s...")
-                        time.sleep(wait_time)
+                        time_module.sleep(wait_time)
                     else:
                         raise  # Re-raise on final attempt
             
