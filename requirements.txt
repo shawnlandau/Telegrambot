@@ -7,8 +7,8 @@ solders>=0.20.0,<1.0.0
 anchorpy>=0.19.1,<1.0.0
 base58>=2.1.1
 
-# Telegram bot
-python-telegram-bot>=20.8,<21.0
+# Telegram bot (with job-queue for scheduling)
+python-telegram-bot[job-queue]>=20.8,<21.0
 
 # Database ORM
 SQLAlchemy>=2.0.27,<3.0
