@@ -303,7 +303,7 @@ class RaydiumClient:
             
             logger.debug(f"Fetching price quote for 1 {self.base_symbol}...")
             
-            # Get quote from Jupiter
+            # Get quote from Jupiter with retry logic
             quote_url = "https://quote-api.jup.ag/v6/quote"
             quote_params = {
                 "inputMint": str(self.base_token_mint),
@@ -312,9 +312,29 @@ class RaydiumClient:
                 "slippageBps": "50",  # Small slippage for price check
             }
             
-            quote_response = requests.get(quote_url, params=quote_params, timeout=10)
-            quote_response.raise_for_status()
-            quote_data = quote_response.json()
+            # Retry up to 3 times with exponential backoff
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    quote_response = requests.get(
+                        quote_url, 
+                        params=quote_params, 
+                        timeout=15,
+                        headers={'User-Agent': 'Mozilla/5.0'}
+                    )
+                    quote_response.raise_for_status()
+                    quote_data = quote_response.json()
+                    break  # Success
+                except (requests.exceptions.ConnectionError, 
+                        requests.exceptions.Timeout,
+                        requests.exceptions.RequestException) as e:
+                    if attempt < max_retries - 1:
+                        wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
+                        logger.warning(f"Jupiter API request failed (attempt {attempt + 1}/{max_retries}): {e}")
+                        logger.info(f"Retrying in {wait_time}s...")
+                        time.sleep(wait_time)
+                    else:
+                        raise  # Re-raise on final attempt
             
             if "outAmount" not in quote_data:
                 raise Exception(f"Invalid quote response: {quote_data}")
@@ -408,7 +428,7 @@ class RaydiumClient:
             
             logger.info(f"Getting Jupiter quote for {amount_in_lamports} lamports...")
             
-            # Step 1: Get quote from Jupiter
+            # Step 1: Get quote from Jupiter with retry logic
             quote_url = f"https://quote-api.jup.ag/v6/quote"
             quote_params = {
                 "inputMint": str(self.base_token_mint),
@@ -417,9 +437,33 @@ class RaydiumClient:
                 "slippageBps": str(slippage_bps),
             }
             
-            quote_response = requests.get(quote_url, params=quote_params, timeout=10)
-            quote_response.raise_for_status()
-            quote_data = quote_response.json()
+            # Retry up to 3 times
+            max_retries = 3
+            quote_data = None
+            for attempt in range(max_retries):
+                try:
+                    quote_response = requests.get(
+                        quote_url, 
+                        params=quote_params, 
+                        timeout=15,
+                        headers={'User-Agent': 'Mozilla/5.0'}
+                    )
+                    quote_response.raise_for_status()
+                    quote_data = quote_response.json()
+                    break  # Success
+                except (requests.exceptions.ConnectionError, 
+                        requests.exceptions.Timeout,
+                        requests.exceptions.RequestException) as e:
+                    if attempt < max_retries - 1:
+                        wait_time = 2 ** attempt
+                        logger.warning(f"Jupiter quote request failed (attempt {attempt + 1}/{max_retries}): {e}")
+                        logger.info(f"Retrying in {wait_time}s...")
+                        time.sleep(wait_time)
+                    else:
+                        raise Exception(f"Jupiter API unavailable after {max_retries} attempts: {e}")
+            
+            if not quote_data:
+                raise Exception("Failed to get quote data from Jupiter")
             
             if "outAmount" not in quote_data:
                 raise Exception(f"Invalid quote response: {quote_data}")
@@ -429,7 +473,7 @@ class RaydiumClient:
             
             logger.info(f"Expected output: {expected_out:.6f} {self.quote_symbol}")
             
-            # Step 2: Get swap transaction from Jupiter
+            # Step 2: Get swap transaction from Jupiter with retry logic
             swap_url = "https://quote-api.jup.ag/v6/swap"
             swap_payload = {
                 "quoteResponse": quote_data,
@@ -438,11 +482,31 @@ class RaydiumClient:
                 "dynamicComputeUnitLimit": True,
             }
             
-            swap_response = requests.post(swap_url, json=swap_payload, timeout=10)
-            swap_response.raise_for_status()
-            swap_data = swap_response.json()
+            # Retry swap request
+            swap_data = None
+            for attempt in range(max_retries):
+                try:
+                    swap_response = requests.post(
+                        swap_url, 
+                        json=swap_payload, 
+                        timeout=15,
+                        headers={'User-Agent': 'Mozilla/5.0', 'Content-Type': 'application/json'}
+                    )
+                    swap_response.raise_for_status()
+                    swap_data = swap_response.json()
+                    break  # Success
+                except (requests.exceptions.ConnectionError, 
+                        requests.exceptions.Timeout,
+                        requests.exceptions.RequestException) as e:
+                    if attempt < max_retries - 1:
+                        wait_time = 2 ** attempt
+                        logger.warning(f"Jupiter swap request failed (attempt {attempt + 1}/{max_retries}): {e}")
+                        logger.info(f"Retrying in {wait_time}s...")
+                        time.sleep(wait_time)
+                    else:
+                        raise Exception(f"Jupiter API unavailable after {max_retries} attempts: {e}")
             
-            if "swapTransaction" not in swap_data:
+            if not swap_data or "swapTransaction" not in swap_data:
                 raise Exception(f"Invalid swap response: {swap_data}")
             
             # Step 3: Decode and sign transaction
@@ -571,7 +635,7 @@ class RaydiumClient:
             
             logger.info(f"Expected output: {expected_out_sol:.6f} {self.base_symbol}")
             
-            # Step 2: Get swap transaction from Jupiter
+            # Step 2: Get swap transaction from Jupiter with retry logic
             swap_url = "https://quote-api.jup.ag/v6/swap"
             swap_payload = {
                 "quoteResponse": quote_data,
@@ -580,11 +644,31 @@ class RaydiumClient:
                 "dynamicComputeUnitLimit": True,
             }
             
-            swap_response = requests.post(swap_url, json=swap_payload, timeout=10)
-            swap_response.raise_for_status()
-            swap_data = swap_response.json()
+            # Retry swap request
+            swap_data = None
+            for attempt in range(max_retries):
+                try:
+                    swap_response = requests.post(
+                        swap_url, 
+                        json=swap_payload, 
+                        timeout=15,
+                        headers={'User-Agent': 'Mozilla/5.0', 'Content-Type': 'application/json'}
+                    )
+                    swap_response.raise_for_status()
+                    swap_data = swap_response.json()
+                    break  # Success
+                except (requests.exceptions.ConnectionError, 
+                        requests.exceptions.Timeout,
+                        requests.exceptions.RequestException) as e:
+                    if attempt < max_retries - 1:
+                        wait_time = 2 ** attempt
+                        logger.warning(f"Jupiter swap request failed (attempt {attempt + 1}/{max_retries}): {e}")
+                        logger.info(f"Retrying in {wait_time}s...")
+                        time.sleep(wait_time)
+                    else:
+                        raise Exception(f"Jupiter API unavailable after {max_retries} attempts: {e}")
             
-            if "swapTransaction" not in swap_data:
+            if not swap_data or "swapTransaction" not in swap_data:
                 raise Exception(f"Invalid swap response: {swap_data}")
             
             # Step 3: Decode and sign transaction
