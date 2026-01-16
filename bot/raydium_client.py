@@ -10,7 +10,7 @@ from decimal import Decimal
 
 from solana.rpc.api import Client
 from solana.rpc.commitment import Confirmed, Finalized, Processed
-from solders.transaction import Transaction
+from solders.transaction import VersionedTransaction
 from solders.keypair import Keypair
 from solders.pubkey import Pubkey
 from solders.system_program import TransferParams, transfer
@@ -514,11 +514,11 @@ class RaydiumClient:
             # Step 3: Decode and sign transaction
             swap_transaction_bytes = base64.b64decode(swap_data["swapTransaction"])
             
-            # Deserialize transaction
-            transaction = Transaction.deserialize(swap_transaction_bytes)
+            # Deserialize versioned transaction (Jupiter uses versioned transactions)
+            transaction = VersionedTransaction.from_bytes(swap_transaction_bytes)
             
             # Sign with our keypair
-            transaction.sign(self.keypair)
+            transaction.sign([self.keypair])
             
             # Step 4: Send transaction
             signature = self._send_transaction(transaction)
@@ -698,11 +698,11 @@ class RaydiumClient:
             # Step 3: Decode and sign transaction
             swap_transaction_bytes = base64.b64decode(swap_data["swapTransaction"])
             
-            # Deserialize transaction
-            transaction = Transaction.deserialize(swap_transaction_bytes)
+            # Deserialize versioned transaction (Jupiter uses versioned transactions)
+            transaction = VersionedTransaction.from_bytes(swap_transaction_bytes)
             
             # Sign with our keypair
-            transaction.sign(self.keypair)
+            transaction.sign([self.keypair])
             
             # Step 4: Send transaction
             signature = self._send_transaction(transaction)
@@ -726,21 +726,21 @@ class RaydiumClient:
             logger.error(f"SELL swap failed: {e}")
             raise Exception(f"Failed to execute SELL swap: {str(e)}")
     
-    def _send_transaction(self, transaction: Transaction) -> str:
+    def _send_transaction(self, transaction: VersionedTransaction) -> str:
         """
-        Send a transaction to Solana network.
+        Send a versioned transaction to Solana network.
         
         Args:
-            transaction: The transaction to send
+            transaction: The versioned transaction to send
         
         Returns:
             Transaction signature (string)
         """
         try:
-            # Send transaction
+            # Send versioned transaction
+            # For VersionedTransaction, we just pass the transaction itself
             response = self.client.send_transaction(
                 transaction,
-                self.keypair,
                 opts={
                     "skip_preflight": config.SKIP_PREFLIGHT,
                     "max_retries": config.MAX_RETRIES
