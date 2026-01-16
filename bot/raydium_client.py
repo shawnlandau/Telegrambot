@@ -13,6 +13,7 @@ from solana.rpc.commitment import Confirmed, Finalized, Processed
 from solana.rpc.types import TxOpts
 from solders.transaction import VersionedTransaction
 from solders.message import to_bytes_versioned
+from solders.signature import Signature
 from solders.keypair import Keypair
 from solders.pubkey import Pubkey
 from solders.system_program import TransferParams, transfer
@@ -777,15 +778,18 @@ class RaydiumClient:
         Wait for transaction confirmation.
         
         Args:
-            signature: Transaction signature to confirm
+            signature: Transaction signature string to confirm
             max_attempts: Maximum number of attempts to check (default: 30)
         
         Returns:
             True if confirmed, raises exception otherwise
         """
+        # Convert string signature to Signature object
+        sig_obj = Signature.from_string(signature)
+        
         for attempt in range(max_attempts):
             try:
-                response = self.client.get_signature_statuses([signature])
+                response = self.client.get_signature_statuses([sig_obj])
                 if response.value and response.value[0]:
                     status = response.value[0]
                     if status.confirmation_status in ["confirmed", "finalized"]:
