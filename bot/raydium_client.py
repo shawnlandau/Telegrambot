@@ -10,6 +10,7 @@ from decimal import Decimal
 
 from solana.rpc.api import Client
 from solana.rpc.commitment import Confirmed, Finalized, Processed
+from solana.rpc.types import TxOpts
 from solders.transaction import VersionedTransaction
 from solders.message import to_bytes_versioned
 from solders.keypair import Keypair
@@ -744,14 +745,16 @@ class RaydiumClient:
             Transaction signature (string)
         """
         try:
-            # Send versioned transaction
-            # For VersionedTransaction, we just pass the transaction itself
-            response = self.client.send_transaction(
-                transaction,
-                opts={
-                    "skip_preflight": config.SKIP_PREFLIGHT,
-                    "max_retries": config.MAX_RETRIES
-                }
+            # Send versioned transaction with proper TxOpts
+            opts = TxOpts(
+                skip_preflight=config.SKIP_PREFLIGHT,
+                preflight_commitment=self.commitment,
+                max_retries=config.MAX_RETRIES
+            )
+            
+            response = self.client.send_raw_transaction(
+                bytes(transaction),
+                opts=opts
             )
             
             if isinstance(response, SendTransactionResp) and response.value:
