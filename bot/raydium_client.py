@@ -304,8 +304,8 @@ class RaydiumClient:
             
             logger.debug(f"Fetching price quote for 1 {self.base_symbol}...")
             
-            # Get quote from Jupiter with retry logic
-            quote_url = "https://quote-api.jup.ag/v6/quote"
+            # Get quote from Jupiter with retry logic (using new lite-api endpoint)
+            quote_url = "https://lite-api.jup.ag/swap/v1/quote"
             quote_params = {
                 "inputMint": str(self.base_token_mint),
                 "outputMint": str(self.quote_token_mint),
@@ -431,7 +431,7 @@ class RaydiumClient:
             logger.info(f"Getting Jupiter quote for {amount_in_lamports} lamports...")
             
             # Step 1: Get quote from Jupiter with retry logic
-            quote_url = f"https://quote-api.jup.ag/v6/quote"
+            quote_url = f"https://lite-api.jup.ag/swap/v1/quote"
             quote_params = {
                 "inputMint": str(self.base_token_mint),
                 "outputMint": str(self.quote_token_mint),
@@ -476,7 +476,7 @@ class RaydiumClient:
             logger.info(f"Expected output: {expected_out:.6f} {self.quote_symbol}")
             
             # Step 2: Get swap transaction from Jupiter with retry logic
-            swap_url = "https://quote-api.jup.ag/v6/swap"
+            swap_url = "https://lite-api.jup.ag/swap/v1/swap"
             swap_payload = {
                 "quoteResponse": quote_data,
                 "userPublicKey": str(self.keypair.pubkey()),
@@ -618,7 +618,7 @@ class RaydiumClient:
             logger.info(f"Getting Jupiter quote for {amount_in_tokens} tokens...")
             
             # Step 1: Get quote from Jupiter with retry logic
-            quote_url = f"https://quote-api.jup.ag/v6/quote"
+            quote_url = f"https://lite-api.jup.ag/swap/v1/quote"
             quote_params = {
                 "inputMint": str(self.quote_token_mint),  # Selling MEMESAI
                 "outputMint": str(self.base_token_mint),   # Receiving SOL
@@ -660,7 +660,7 @@ class RaydiumClient:
             logger.info(f"Expected output: {expected_out_sol:.6f} {self.base_symbol}")
             
             # Step 2: Get swap transaction from Jupiter with retry logic
-            swap_url = "https://quote-api.jup.ag/v6/swap"
+            swap_url = "https://lite-api.jup.ag/swap/v1/swap"
             swap_payload = {
                 "quoteResponse": quote_data,
                 "userPublicKey": str(self.keypair.pubkey()),
