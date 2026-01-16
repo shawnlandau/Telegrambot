@@ -520,15 +520,15 @@ class RaydiumClient:
             raw_transaction = VersionedTransaction.from_bytes(swap_transaction_bytes)
             
             # Sign the transaction message with our keypair
-            signature = self.keypair.sign_message(to_bytes_versioned(raw_transaction.message))
+            tx_signature = self.keypair.sign_message(to_bytes_versioned(raw_transaction.message))
             
             # Populate transaction with signature
-            signed_transaction = VersionedTransaction.populate(raw_transaction.message, [signature])
+            signed_transaction = VersionedTransaction.populate(raw_transaction.message, [tx_signature])
             
             # Step 4: Send transaction
-            signature = self._send_transaction(signed_transaction)
+            signature_str = self._send_transaction(signed_transaction)
             
-            logger.info(f"BUY swap successful: {signature}")
+            logger.info(f"BUY swap successful: {signature_str}")
             
             # Step 5: Return result
             actual_amount_in = notional_sol
@@ -537,7 +537,7 @@ class RaydiumClient:
             return {
                 'amount_in': actual_amount_in,
                 'amount_out': actual_amount_out,
-                'tx_hash': signature,
+                'tx_hash': signature_str,
                 'slot': None,
                 'gas_used': 50000,  # Solana compute units (estimated)
                 'gas_price_gwei': 0.000005  # Solana transaction fee (~5000 lamports)
@@ -707,15 +707,15 @@ class RaydiumClient:
             raw_transaction = VersionedTransaction.from_bytes(swap_transaction_bytes)
             
             # Sign the transaction message with our keypair
-            signature = self.keypair.sign_message(to_bytes_versioned(raw_transaction.message))
+            tx_signature = self.keypair.sign_message(to_bytes_versioned(raw_transaction.message))
             
             # Populate transaction with signature
-            signed_transaction = VersionedTransaction.populate(raw_transaction.message, [signature])
+            signed_transaction = VersionedTransaction.populate(raw_transaction.message, [tx_signature])
             
             # Step 4: Send transaction
-            signature = self._send_transaction(signed_transaction)
+            signature_str = self._send_transaction(signed_transaction)
             
-            logger.info(f"SELL swap successful: {signature}")
+            logger.info(f"SELL swap successful: {signature_str}")
             
             # Step 5: Return result
             actual_amount_in = token_amount
@@ -724,7 +724,7 @@ class RaydiumClient:
             return {
                 'amount_in': actual_amount_in,
                 'amount_out': actual_amount_out,
-                'tx_hash': signature,
+                'tx_hash': signature_str,
                 'slot': None,
                 'gas_used': 50000,  # Solana compute units (estimated)
                 'gas_price_gwei': 0.000005  # Solana transaction fee (~5000 lamports)
