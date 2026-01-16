@@ -11,6 +11,7 @@ from decimal import Decimal
 from solana.rpc.api import Client
 from solana.rpc.commitment import Confirmed, Finalized, Processed
 from solders.transaction import VersionedTransaction
+from solders.message import to_bytes_versioned
 from solders.keypair import Keypair
 from solders.pubkey import Pubkey
 from solders.system_program import TransferParams, transfer
@@ -515,13 +516,16 @@ class RaydiumClient:
             swap_transaction_bytes = base64.b64decode(swap_data["swapTransaction"])
             
             # Deserialize versioned transaction (Jupiter uses versioned transactions)
-            transaction = VersionedTransaction.from_bytes(swap_transaction_bytes)
+            raw_transaction = VersionedTransaction.from_bytes(swap_transaction_bytes)
             
-            # Sign with our keypair
-            transaction.sign([self.keypair])
+            # Sign the transaction message with our keypair
+            signature = self.keypair.sign_message(to_bytes_versioned(raw_transaction.message))
+            
+            # Populate transaction with signature
+            signed_transaction = VersionedTransaction.populate(raw_transaction.message, [signature])
             
             # Step 4: Send transaction
-            signature = self._send_transaction(transaction)
+            signature = self._send_transaction(signed_transaction)
             
             logger.info(f"BUY swap successful: {signature}")
             
@@ -699,13 +703,16 @@ class RaydiumClient:
             swap_transaction_bytes = base64.b64decode(swap_data["swapTransaction"])
             
             # Deserialize versioned transaction (Jupiter uses versioned transactions)
-            transaction = VersionedTransaction.from_bytes(swap_transaction_bytes)
+            raw_transaction = VersionedTransaction.from_bytes(swap_transaction_bytes)
             
-            # Sign with our keypair
-            transaction.sign([self.keypair])
+            # Sign the transaction message with our keypair
+            signature = self.keypair.sign_message(to_bytes_versioned(raw_transaction.message))
+            
+            # Populate transaction with signature
+            signed_transaction = VersionedTransaction.populate(raw_transaction.message, [signature])
             
             # Step 4: Send transaction
-            signature = self._send_transaction(transaction)
+            signature = self._send_transaction(signed_transaction)
             
             logger.info(f"SELL swap successful: {signature}")
             
