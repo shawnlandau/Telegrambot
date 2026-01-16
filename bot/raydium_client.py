@@ -53,12 +53,12 @@ class RaydiumClient:
             "confirmed": Confirmed,
             "processed": Processed
         }
-        commitment = commitment_map.get(config.COMMITMENT_LEVEL.lower(), Confirmed)
+        self.commitment = commitment_map.get(config.COMMITMENT_LEVEL.lower(), Confirmed)
         
         # Connect to Solana RPC
         self.client = Client(
             config.SOLANA_RPC_URL,
-            commitment=commitment,
+            commitment=self.commitment,
             timeout=config.RPC_TIMEOUT
         )
         
