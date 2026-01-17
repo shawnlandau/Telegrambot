@@ -67,7 +67,7 @@ class SessionState:
     spent_notional: float = 0.0  # Total SOL spent on BUY trades
     received_base: float = 0.0  # Total SOL received from SELL trades
     quote_position_delta: float = 0.0  # Net MEMESAI tokens gained/lost
-    pattern_index: int = 0  # Current position in the BUY-BUY-SELL-SELL pattern (0-3)
+    pattern_index: int = 0  # Current position in the BUY-SELL-BUY-SELL pattern (0-3)
     started_at: Optional[datetime] = None
     stopped_at: Optional[datetime] = None
     last_error: Optional[str] = None
@@ -78,7 +78,7 @@ class SessionState:
     
     def get_current_side(self) -> str:
         """Get the current trade side based on pattern_index."""
-        pattern = ["BUY", "BUY", "SELL", "SELL"]
+        pattern = ["BUY", "SELL", "BUY", "SELL"]
         return pattern[self.pattern_index % 4]
     
     def advance_pattern(self) -> None:
