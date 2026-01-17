@@ -313,7 +313,7 @@ class RaydiumClient:
                 "inputMint": str(self.base_token_mint),
                 "outputMint": str(self.quote_token_mint),
                 "amount": str(test_amount_lamports),
-                "slippageBps": "50",  # Small slippage for price check
+                "slippageBps": str(config.DEFAULT_SLIPPAGE_BPS),  # Use config instead of hardcoded value
             }
             
             # Retry up to 3 times with exponential backoff

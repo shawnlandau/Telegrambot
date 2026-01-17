@@ -353,6 +353,7 @@ async def config_interval(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             total_liquidity=context.user_data['total_liquidity'],
             trade_pct=context.user_data['trade_pct'],
             interval_seconds=interval,
+            slippage_bps=config.DEFAULT_SLIPPAGE_BPS,  # Use config value instead of hardcoded default
         )
         
         db.save_session_config(session_config)

@@ -28,7 +28,7 @@ class SessionConfig:
     total_liquidity: float  # Total liquidity in base token (SOL)
     trade_pct: float  # Percentage of total_liquidity per trade (e.g., 2.0 = 2%)
     interval_seconds: int  # Time delay between trades
-    slippage_bps: int = 100  # Slippage tolerance in basis points (100 = 1% for Solana)
+    slippage_bps: int = 30  # Slippage tolerance in basis points (30 = 0.3% for Solana) - reduced from 100
     min_notional: float = 0.01  # Minimum SOL amount per trade (adjusted for Solana)
     max_position: Optional[float] = None  # Optional maximum quote token (MEMESAI) position
     
