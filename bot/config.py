@@ -51,6 +51,10 @@ class Config:
         # Slippage tolerance in basis points (default 100 = 1%)
         self.DEFAULT_SLIPPAGE_BPS = int(os.getenv("DEFAULT_SLIPPAGE_BPS", "100"))
         
+        # Transaction confirmation timeout in seconds (default 30s for fast trading)
+        # Set higher (60-120s) for more reliable confirmation, lower (10-30s) for faster cycles
+        self.TX_CONFIRMATION_TIMEOUT = int(os.getenv("TX_CONFIRMATION_TIMEOUT", "30"))
+        
         # RPC configuration
         self.RPC_TIMEOUT = int(os.getenv("RPC_TIMEOUT", "30"))
         self.RPC_MAX_RETRIES = int(os.getenv("RPC_MAX_RETRIES", "3"))

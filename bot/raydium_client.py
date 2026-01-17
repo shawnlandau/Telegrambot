@@ -773,17 +773,21 @@ class RaydiumClient:
             logger.error(f"Failed to send transaction: {e}")
             raise
     
-    def _confirm_transaction(self, signature: str, max_attempts: int = 60) -> bool:
+    def _confirm_transaction(self, signature: str, max_attempts: int = None) -> bool:
         """
         Wait for transaction confirmation.
         
         Args:
             signature: Transaction signature string to confirm
-            max_attempts: Maximum number of attempts to check (default: 60 = 2 minutes)
+            max_attempts: Maximum number of attempts to check (default from config)
         
         Returns:
             True if confirmed, logs warning if timeout but doesn't fail
         """
+        # Use config timeout if not specified (convert seconds to attempts: timeout / 2)
+        if max_attempts is None:
+            max_attempts = max(5, config.TX_CONFIRMATION_TIMEOUT // 2)
+        
         # Convert string signature to Signature object
         sig_obj = Signature.from_string(signature)
         
