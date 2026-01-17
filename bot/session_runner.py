@@ -21,8 +21,9 @@ from .db import Database
 
 logger = logging.getLogger(__name__)
 
-# Fixed trading pattern: BUY -> BUY -> SELL -> SELL (repeating)
-TRADING_PATTERN = ["BUY", "BUY", "SELL", "SELL"]
+# Fixed trading pattern: BUY -> SELL -> BUY -> SELL (repeating)
+# This alternating pattern reduces accumulation and price impact
+TRADING_PATTERN = ["BUY", "SELL", "BUY", "SELL"]
 
 
 class SessionRunner:

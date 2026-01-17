@@ -5,7 +5,7 @@ Handles user commands and manages trading sessions on Solana/Raydium.
 TRADING PATTERN (Solana):
 - BUY: Spend SOL → Get MEMESAI
 - SELL: Spend MEMESAI → Get SOL
-- Pattern: BUY → BUY → SELL → SELL (repeating)
+- Pattern: BUY → SELL → BUY → SELL (repeating)
 """
 
 import logging
@@ -228,7 +228,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             f"• Trade %: {user_config.trade_pct}%\n"
             f"• Trade Amount: {trade_amount:.2f}\n"
             f"• Interval: {user_config.interval_seconds}s\n"
-            f"• Pattern: BUY → BUY → SELL → SELL (repeating)\n\n"
+            f"• Pattern: BUY → SELL → BUY → SELL (repeating)\n\n"
             f"The bot will execute trades automatically.\n"
             f"Use /status to check progress or /stop to stop."
         )
@@ -368,7 +368,7 @@ async def config_interval(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             f"• Interval: {session_config.interval_seconds}s\n"
             f"• Slippage: {session_config.slippage_bps / 100:.2f}%\n"
             f"• Min Trade: {session_config.min_notional:.2f}\n\n"
-            f"Pattern: BUY → BUY → SELL → SELL (repeating)\n\n"
+            f"Pattern: BUY → SELL → BUY → SELL (repeating)\n\n"
             f"Use /start to begin trading!"
         )
         
@@ -540,7 +540,7 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         f"• SOL: {balances['base']:.4f}\n"
         f"• MEMESAI: {balances['quote']:.6f}\n"
         f"• Price: {price:.6f}\n\n"
-        f"Pattern: BUY → BUY → SELL → SELL"
+        f"Pattern: BUY → SELL → BUY → SELL"
     )
     
     if session_state.last_error:
