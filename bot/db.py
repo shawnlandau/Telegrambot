@@ -1,6 +1,10 @@
 """
-Database layer using SQLAlchemy ORM for persistent storage.
+Database layer using SQLAlchemy ORM for persistent storage - Solana Edition.
 Manages session configuration, state, and trade history in SQLite.
+
+FIELD NAME UPDATES FOR SOLANA:
+- received_base: Total SOL received from SELL trades (was received_quote)
+- quote_position_delta: Net MEMESAI gained/lost (was base_position_delta)
 """
 
 import logging
@@ -31,30 +35,35 @@ Base = declarative_base()
 # SQLAlchemy ORM Models
 
 class SessionConfigDB(Base):
-    """Database model for SessionConfig."""
+    """Database model for SessionConfig - Solana Edition."""
     __tablename__ = "session_configs"
     
     user_id = Column(Integer, primary_key=True)
     total_liquidity = Column(Float, nullable=False)
     trade_pct = Column(Float, nullable=False)
     interval_seconds = Column(Integer, nullable=False)
-    slippage_bps = Column(Integer, default=50)
-    min_notional = Column(Float, default=10.0)
+    slippage_bps = Column(Integer, default=100)  # 1% for Solana (was 50 = 0.5%)
+    min_notional = Column(Float, default=0.01)  # Minimum 0.01 SOL (was 10.0 USDC)
     max_position = Column(Float, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class SessionStateDB(Base):
-    """Database model for SessionState."""
+    """Database model for SessionState - Solana Edition.
+    
+    NOTE: Field names updated to match Solana terminology:
+    - received_base: Total SOL received from SELL trades
+    - quote_position_delta: Net MEMESAI tokens gained/lost
+    """
     __tablename__ = "session_states"
     
     user_id = Column(Integer, primary_key=True)
     active = Column(Boolean, default=False)
     trades_executed = Column(Integer, default=0)
     spent_notional = Column(Float, default=0.0)
-    received_quote = Column(Float, default=0.0)
-    base_position_delta = Column(Float, default=0.0)
+    received_base = Column(Float, default=0.0)  # Changed from received_quote
+    quote_position_delta = Column(Float, default=0.0)  # Changed from base_position_delta
     pattern_index = Column(Integer, default=0)
     started_at = Column(DateTime, nullable=True)
     stopped_at = Column(DateTime, nullable=True)
@@ -63,7 +72,10 @@ class SessionStateDB(Base):
 
 
 class TradeRecordDB(Base):
-    """Database model for TradeRecord."""
+    """Database model for TradeRecord - Solana Edition.
+    
+    NOTE: tx_hash stores Solana transaction signatures (base58, ~88 chars)
+    """
     __tablename__ = "trade_records"
     
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -71,10 +83,10 @@ class TradeRecordDB(Base):
     side = Column(String(4), nullable=False)  # "BUY" or "SELL"
     amount_in = Column(Float, nullable=False)
     amount_out = Column(Float, nullable=False)
-    tx_hash = Column(String(66), nullable=False, unique=True)
+    tx_hash = Column(String(100), nullable=False, unique=True)  # Solana sigs are longer
     timestamp = Column(DateTime, default=datetime.utcnow, index=True)
-    gas_used = Column(Integer, nullable=True)
-    gas_price_gwei = Column(Float, nullable=True)
+    gas_used = Column(Integer, nullable=True)  # For Solana, this would be compute units
+    gas_price_gwei = Column(Float, nullable=True)  # For Solana, lamports per compute unit
     execution_price = Column(Float, nullable=True)
 
 
@@ -176,8 +188,8 @@ class Database:
                 db_state.active = state.active
                 db_state.trades_executed = state.trades_executed
                 db_state.spent_notional = state.spent_notional
-                db_state.received_quote = state.received_quote
-                db_state.base_position_delta = state.base_position_delta
+                db_state.received_base = state.received_base
+                db_state.quote_position_delta = state.quote_position_delta
                 db_state.pattern_index = state.pattern_index
                 db_state.started_at = state.started_at
                 db_state.stopped_at = state.stopped_at
@@ -190,8 +202,8 @@ class Database:
                     active=state.active,
                     trades_executed=state.trades_executed,
                     spent_notional=state.spent_notional,
-                    received_quote=state.received_quote,
-                    base_position_delta=state.base_position_delta,
+                    received_base=state.received_base,
+                    quote_position_delta=state.quote_position_delta,
                     pattern_index=state.pattern_index,
                     started_at=state.started_at,
                     stopped_at=state.stopped_at,
@@ -215,8 +227,8 @@ class Database:
                 active=db_state.active,
                 trades_executed=db_state.trades_executed,
                 spent_notional=db_state.spent_notional,
-                received_quote=db_state.received_quote,
-                base_position_delta=db_state.base_position_delta,
+                received_base=db_state.received_base,
+                quote_position_delta=db_state.quote_position_delta,
                 pattern_index=db_state.pattern_index,
                 started_at=db_state.started_at,
                 stopped_at=db_state.stopped_at,

@@ -1,0 +1,18 @@
+# Railway ignore file - don't upload these to Railway
+.env
+.env.local
+bot_data.db
+*.db
+*.log
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.git/
+.gitignore
+.DS_Store
+*.md
+test_*.py
+find_*.py
+validate_*.py
